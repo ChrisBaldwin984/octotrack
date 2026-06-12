@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Live daily prices for the Octopus Energy Tracker tariff, including Tracker April 2026 v1. No sign-up, no tracking — your data stays in your browser."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>OctoTrack — Octopus Tracker daily prices</title>
+    <script type="module" src="/src/tracker.ts"></script>
+  </head>
+  <body>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <header class="site-header">
+      <a class="logo" href="/">octo<span>track</span><i class="tick"></i></a>
+      <nav>
+        <a href="/" aria-current="page">Prices</a>
+        <a href="/savings.html">My Savings</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Today's Tracker price.<br />Straight from the wholesale market.</h1>
+        <p class="lede">
+          Octopus Tracker changes price every single day. This page follows the latest
+          version — <strong>Tracker April 2026 v1</strong> — live from the Octopus API,
+          for every region in Great Britain.
+        </p>
+      </section>
+
+      <section class="controls" aria-label="Tariff options">
+        <label>
+          Region
+          <select id="region"></select>
+        </label>
+        <label>
+          Tariff version
+          <select id="version"></select>
+        </label>
+      </section>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section id="cards" class="cards" aria-label="Today's and tomorrow's prices"></section>
+
+      <p id="standing" class="standing"></p>
+
+      <section class="chart-section" aria-label="Price history">
+        <div class="chart-head">
+          <h2>Price history</h2>
+          <div class="range-toggle" role="group" aria-label="Chart range">
+            <button data-range="30" class="active">30 days</button>
+            <button data-range="90">90 days</button>
+            <button data-range="0">All</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="price-chart"></canvas></div>
+        <p class="chart-note">Dashed lines show Flexible Octopus (the standard variable tariff) for comparison.</p>
+      </section>
+
+      <section class="faq">
+        <h2>Quick answers</h2>
+        <details>
+          <summary>When is tomorrow's price published?</summary>
+          <p>Octopus publishes the next day's Tracker rates shortly after midnight UK time. If tomorrow shows as pending, check back after midnight.</p>
+        </details>
+        <details>
+          <summary>Why does my region matter?</summary>
+          <p>Energy distribution costs differ across Great Britain's 14 supply regions, so Tracker unit rates and standing charges vary slightly by region. Pick yours and we'll remember it on this device.</p>
+        </details>
+        <details>
+          <summary>Is there a limit to how high prices can go?</summary>
+          <p>Yes — Tracker April 2026 v1 is capped at 100p/kWh for electricity and 30p/kWh for gas, including VAT.</p>
+        </details>
+        <details>
+          <summary>Is this site official?</summary>
+          <p>No. OctoTrack is an independent tool built by CBTech Solutions and is not affiliated with Octopus Energy. All prices come live from the public Octopus API.</p>
+        </details>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p id="updated"></p>
+      <p>
+        No cookies · no analytics · no data leaves your browser ·
+        <a href="https://github.com/ChrisBaldwin984/octotrack" rel="noopener">source on GitHub</a>
+      </p>
+      <p>Built by CBTech Solutions. Not affiliated with Octopus Energy.</p>
+    </footer>
+  </body>
+</html>

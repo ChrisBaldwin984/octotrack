@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="See exactly how much the Octopus Tracker tariff has saved you versus Flexible Octopus, using your own smart-meter data. Everything stays in your browser."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>My Savings — OctoTrack</title>
+    <script type="module" src="/src/savings.ts"></script>
+  </head>
+  <body>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <header class="site-header">
+      <a class="logo" href="/">octo<span>track</span><i class="tick"></i></a>
+      <nav>
+        <a href="/">Prices</a>
+        <a href="/savings.html" aria-current="page">My Savings</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Is Tracker actually saving you money?</h1>
+        <p class="lede">
+          Pull in your real smart-meter usage and see what every day cost you on
+          <strong>Tracker April 2026 v1</strong> versus what it would have cost on
+          Flexible Octopus.
+        </p>
+      </section>
+
+      <section class="privacy-panel">
+        <h2>Your details never leave this browser</h2>
+        <p>
+          Your API key and account number are stored in <strong>this browser's local storage
+          only</strong> and are sent over HTTPS directly to <code>api.octopus.energy</code> —
+          never to us or anyone else. This site has no server, no database, no cookies and no
+          analytics. <a href="https://github.com/ChrisBaldwin984/octotrack" rel="noopener">Read the source</a> if you'd like to check.
+        </p>
+      </section>
+
+      <form id="connect-form" class="connect-form">
+        <div class="field-grid">
+          <label>
+            Octopus API key
+            <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk_live_…" />
+            <small>From your <strong>Octopus dashboard → Account → API access</strong></small>
+          </label>
+          <label>
+            Account number
+            <input id="account" type="text" autocomplete="off" spellcheck="false" placeholder="A-XXXXXXXX" />
+            <small>Starts with “A-”, shown on every Octopus email</small>
+          </label>
+          <label>
+            Region
+            <select id="region"></select>
+            <small>Used to pick the right regional prices</small>
+          </label>
+          <label>
+            Gas meter reports
+            <select id="gas-units">
+              <option value="m3">m³ (most smart meters — SMETS2)</option>
+              <option value="kwh">kWh (SMETS1)</option>
+            </select>
+            <small>Skip this if you don't have gas</small>
+          </label>
+          <label>
+            Calorific value
+            <input id="calorific" type="number" min="37" max="43" step="0.1" />
+            <small>From your gas bill; 39.5 is a sound default</small>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Show my savings</button>
+          <button type="button" id="demo-btn">Try the demo — no details needed</button>
+          <button type="button" id="clear-btn" class="ghost">Clear my data from this browser</button>
+        </div>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section id="results" hidden aria-label="Savings results">
+        <p id="demo-badge" class="demo-badge" hidden>
+          Demo mode — sample household usage priced with real live rates
+        </p>
+        <div id="headline" class="headline"></div>
+        <div id="breakdown" class="cards breakdown"></div>
+        <div class="chart-box"><canvas id="savings-chart"></canvas></div>
+        <h2 class="table-title">Day by day</h2>
+        <div id="table-wrap" class="table-wrap"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p id="updated"></p>
+      <p>
+        No cookies · no analytics · no data leaves your browser ·
+        <a href="https://github.com/ChrisBaldwin984/octotrack" rel="noopener">source on GitHub</a>
+      </p>
+      <p>Built by CBTech Solutions. Not affiliated with Octopus Energy.</p>
+    </footer>
+  </body>
+</html>
