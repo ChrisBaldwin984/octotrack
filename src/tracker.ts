@@ -32,7 +32,7 @@ let loaded: {
   flexElec: Rate[]
   flexGas: Rate[]
 } | null = null
-let range = 7
+let range = 90
 
 for (const [letter, name] of Object.entries(REGIONS)) {
   regionSel.add(new Option(`${name} (${letter})`, letter))
