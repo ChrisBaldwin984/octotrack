@@ -65,35 +65,14 @@ export interface Series {
   color: string
   dashed?: boolean
   fill?: boolean
-  /** 'y2' puts the series on a separate right-hand axis (e.g. gas alongside electricity) */
-  axis?: 'y' | 'y2'
+}
+
+/** "7.200000000000001p" -> "7.2p" */
+function tickLabel(v: number | string, unit: string): string {
+  return `${parseFloat(Number(v).toFixed(2))}${unit}`
 }
 
 export function priceChart(canvas: HTMLCanvasElement, labels: string[], series: Series[], unit: string): Chart {
-  const dualAxis = series.some((s) => s.axis === 'y2')
-
-  const scales: Record<string, object> = {
-    x: baseScales.x,
-    y: {
-      ...baseScales.y,
-      ticks: {
-        callback: (v: number | string) => `${v}${unit}`,
-        color: dualAxis ? COLORS.elec : COLORS.tick,
-      },
-    },
-  }
-  if (dualAxis) {
-    scales.y2 = {
-      position: 'right',
-      grid: { drawOnChartArea: false },
-      border: { display: false },
-      ticks: {
-        callback: (v: number | string) => `${v}${unit}`,
-        color: COLORS.gas,
-      },
-    }
-  }
-
   return new Chart(canvas, {
     type: 'line',
     data: {
@@ -101,7 +80,6 @@ export function priceChart(canvas: HTMLCanvasElement, labels: string[], series: 
       datasets: series.map((s) => ({
         label: s.label,
         data: s.data,
-        yAxisID: s.axis ?? 'y',
         borderColor: s.color,
         backgroundColor: s.fill ? s.color + '22' : s.color,
         borderWidth: 2,
@@ -135,7 +113,13 @@ export function priceChart(canvas: HTMLCanvasElement, labels: string[], series: 
           limits: { x: { min: 'original', max: 'original', minRange: 4 } },
         },
       },
-      scales,
+      scales: {
+        ...baseScales,
+        y: {
+          ...baseScales.y,
+          ticks: { callback: (v) => tickLabel(v, unit) },
+        },
+      },
     },
   })
 }

@@ -17,11 +17,11 @@ const versionSel = $<HTMLSelectElement>('#version')
 const statusEl = $('#status')
 const cardsEl = $('#cards')
 const standingEl = $('#standing')
-const chartCanvas = $<HTMLCanvasElement>('#price-chart')
+const elecCanvas = $<HTMLCanvasElement>('#elec-chart')
+const gasCanvas = $<HTMLCanvasElement>('#gas-chart')
 const rangeBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-range]')]
-const fuelViewBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-fuel-view]')]
 
-let chart: Chart | null = null
+let charts: Chart[] = []
 let loaded: {
   elec: Map<string, number>
   gas: Map<string, number>
@@ -29,7 +29,6 @@ let loaded: {
   flexGas: Rate[]
 } | null = null
 let range = 7
-let fuelView: 'both' | 'elec' | 'gas' = 'both'
 
 for (const [letter, name] of Object.entries(REGIONS)) {
   regionSel.add(new Option(`${name} (${letter})`, letter))
@@ -53,13 +52,6 @@ for (const btn of rangeBtns) {
     range = Number(btn.dataset.range)
     for (const b of rangeBtns) b.classList.toggle('active', b === btn)
     applyRange()
-  })
-}
-for (const btn of fuelViewBtns) {
-  btn.addEventListener('click', () => {
-    fuelView = btn.dataset.fuelView as 'both' | 'elec' | 'gas'
-    for (const b of fuelViewBtns) b.classList.toggle('active', b === btn)
-    renderChart()
   })
 }
 
@@ -163,33 +155,28 @@ function renderChart(): void {
   const dates = [...loaded.elec.keys()].sort()
   const labels = dates.map(shortDay)
 
-  const series: Series[] = []
-  if (fuelView !== 'gas') {
-    series.push(
-      { label: 'Tracker electricity', data: dates.map((d) => loaded!.elec.get(d) ?? null), color: COLORS.elec, fill: true },
-      { label: 'Flexible electricity', data: dates.map((d) => rateOn(loaded!.flexElec, d)), color: COLORS.flex, dashed: true },
-    )
-  }
-  if (fuelView !== 'elec') {
-    const gasAxis = fuelView === 'both' ? 'y2' : 'y'
-    series.push(
-      { label: 'Tracker gas', data: dates.map((d) => loaded!.gas.get(d) ?? null), color: COLORS.gas, fill: true, axis: gasAxis },
-      { label: 'Flexible gas', data: dates.map((d) => rateOn(loaded!.flexGas, d)), color: '#7d6b8c', dashed: true, axis: gasAxis },
-    )
-  }
+  const elecSeries: Series[] = [
+    { label: 'Tracker electricity', data: dates.map((d) => loaded!.elec.get(d) ?? null), color: COLORS.elec, fill: true },
+    { label: 'Flexible electricity', data: dates.map((d) => rateOn(loaded!.flexElec, d)), color: COLORS.flex, dashed: true },
+  ]
+  const gasSeries: Series[] = [
+    { label: 'Tracker gas', data: dates.map((d) => loaded!.gas.get(d) ?? null), color: COLORS.gas, fill: true },
+    { label: 'Flexible gas', data: dates.map((d) => rateOn(loaded!.flexGas, d)), color: '#7d6b8c', dashed: true },
+  ]
 
-  chart?.destroy()
-  chart = priceChart(chartCanvas, labels, series, 'p')
+  for (const c of charts) c.destroy()
+  charts = [priceChart(elecCanvas, labels, elecSeries, 'p'), priceChart(gasCanvas, labels, gasSeries, 'p')]
   applyRange()
 }
 
 function applyRange(): void {
-  if (!chart) return
-  const n = chart.data.labels?.length ?? 0
-  const x = chart.options.scales!.x as { min?: number; max?: number }
-  x.min = range > 0 ? Math.max(0, n - range) : 0
-  x.max = n - 1
-  chart.update()
+  for (const chart of charts) {
+    const n = chart.data.labels?.length ?? 0
+    const x = chart.options.scales!.x as { min?: number; max?: number }
+    x.min = range > 0 ? Math.max(0, n - range) : 0
+    x.max = n - 1
+    chart.update()
+  }
 }
 
 $('#updated').textContent = `Prices include VAT. Last checked ${londonDate(new Date())}.`

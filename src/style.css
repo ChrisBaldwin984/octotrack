@@ -363,6 +363,23 @@ h2 {
   border-radius: var(--radius);
   padding: 16px;
 }
+.chart-box--split {
+  height: 300px;
+  margin-top: 8px;
+}
+.chart-fuel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 22px 0 0;
+}
+.chart-fuel-title.elec {
+  color: var(--elec);
+}
+.chart-fuel-title.gas {
+  color: var(--gas);
+}
 
 /* ---------- FAQ ---------- */
 .faq {
