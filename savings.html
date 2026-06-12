@@ -28,9 +28,8 @@
       <section class="hero">
         <h1>Is Tracker actually saving you money?</h1>
         <p class="lede">
-          Pull in your real smart-meter usage and see what every day cost you on
-          <strong>Tracker April 2026 v1</strong> versus what it would have cost on
-          Flexible Octopus.
+          Pull in your real smart-meter usage and see what every month and every day cost you
+          on Tracker versus what it would have cost on Flexible Octopus.
         </p>
       </section>
 
@@ -40,7 +39,7 @@
           Your API key and account number are stored in <strong>this browser's local storage
           only</strong> and are sent over HTTPS directly to <code>api.octopus.energy</code> —
           never to us or anyone else. This site has no server, no database, no cookies and no
-          analytics. <a href="https://github.com/ChrisBaldwin984/octotrack" rel="noopener">Read the source</a> if you'd like to check.
+          analytics.
         </p>
       </section>
 
@@ -59,7 +58,7 @@
           <label>
             Region
             <select id="region"></select>
-            <small>Used to pick the right regional prices</small>
+            <small>Auto-detected from your tariff when you connect</small>
           </label>
           <label>
             Gas meter reports
@@ -82,26 +81,66 @@
         </div>
       </form>
 
+      <section class="range-controls" aria-label="Comparison period">
+        <span class="range-label">Compare over</span>
+        <div class="range-toggle" role="group">
+          <button data-preset="tariff" class="active">Current tariff</button>
+          <button data-preset="30">Last 30 days</button>
+          <button data-preset="90">Last 90 days</button>
+          <button data-preset="365">Last 12 months</button>
+          <button data-preset="custom">Custom</button>
+        </div>
+        <div class="custom-range" id="custom-range" hidden>
+          <label>From <input type="date" id="date-from" /></label>
+          <label>To <input type="date" id="date-to" /></label>
+          <button type="button" id="apply-range" class="primary">Apply</button>
+        </div>
+      </section>
+
       <p id="status" class="status" role="status"></p>
 
       <section id="results" hidden aria-label="Savings results">
         <p id="demo-badge" class="demo-badge" hidden>
           Demo mode — sample household usage priced with real live rates
         </p>
+
         <div id="headline" class="headline"></div>
-        <div id="breakdown" class="cards breakdown"></div>
-        <div class="chart-box"><canvas id="savings-chart"></canvas></div>
-        <h2 class="table-title">Day by day</h2>
-        <div id="table-wrap" class="table-wrap"></div>
+
+        <p id="tariff-line" class="tariff-line"></p>
+
+        <div class="fuel-tabs" id="fuel-tabs" role="tablist"></div>
+
+        <div class="savings-layout">
+          <div class="bars-pane">
+            <div class="pane-head">
+              <h2 id="bars-title">Monthly breakdown</h2>
+              <div class="range-toggle" id="mode-toggle" role="group" aria-label="Breakdown granularity">
+                <button data-mode="monthly" class="active">Monthly</button>
+                <button data-mode="daily">Daily</button>
+              </div>
+            </div>
+            <div class="bars-box" id="bars-box">
+              <div class="bars-inner" id="bars-inner"><canvas id="bars-chart"></canvas></div>
+            </div>
+            <p class="chart-note">
+              Bar = what you paid on Tracker · <span class="flex-key">┊</span> dashed marker = what
+              Flexible Octopus would have cost · label = the difference.
+            </p>
+          </div>
+          <aside class="stats-pane" id="stats"></aside>
+        </div>
+
+        <details class="detail-section" id="detail-section">
+          <summary>Cumulative savings chart &amp; day-by-day table</summary>
+          <div class="chart-box"><canvas id="savings-chart"></canvas></div>
+          <div id="table-wrap" class="table-wrap"></div>
+        </details>
       </section>
     </main>
 
     <footer class="site-footer">
       <p id="updated"></p>
-      <p>
-        No cookies · no analytics · no data leaves your browser ·
-        <a href="https://github.com/ChrisBaldwin984/octotrack" rel="noopener">source on GitHub</a>
-      </p>
+      <p>No cookies · no analytics · no data leaves your browser</p>
       <p>Built by CBTech Solutions. Not affiliated with Octopus Energy.</p>
     </footer>
   </body>

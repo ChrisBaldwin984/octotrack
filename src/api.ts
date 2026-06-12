@@ -16,10 +16,17 @@ export interface ConsumptionRow {
   interval_end: string
 }
 
+export interface Agreement {
+  tariff_code: string
+  valid_from: string
+  valid_to: string | null
+}
+
 export interface MeterPoint {
   fuel: Fuel
   mpxn: string
   serials: string[]
+  agreements: Agreement[]
 }
 
 export interface AccountInfo {
@@ -84,9 +91,11 @@ export function getUnitRates(
   fuel: Fuel,
   region: string,
   periodFrom?: string,
+  periodTo?: string,
 ): Promise<Rate[]> {
   let url = `${tariffPath(product, fuel, region)}/standard-unit-rates/?page_size=1500`
   if (periodFrom) url += `&period_from=${periodFrom}T00:00:00Z`
+  if (periodTo) url += `&period_to=${periodTo}T23:59:59Z`
   return getAllPages<Rate>(url)
 }
 
@@ -127,6 +136,7 @@ export async function getAccount(apiKey: string, account: string): Promise<Accou
         fuel: 'electricity',
         mpxn: mp.mpan,
         serials: mp.meters.map((m) => m.serial_number).filter(Boolean),
+        agreements: mp.agreements ?? [],
       })
       for (const ag of mp.agreements ?? []) {
         if (ag.tariff_code.includes('SILVER') && (!trackerSince || ag.valid_from > trackerSince)) {
@@ -139,6 +149,7 @@ export async function getAccount(apiKey: string, account: string): Promise<Accou
         fuel: 'gas',
         mpxn: mp.mprn,
         serials: mp.meters.map((m) => m.serial_number).filter(Boolean),
+        agreements: mp.agreements ?? [],
       })
     }
   }

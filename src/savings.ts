@@ -8,21 +8,30 @@ import {
   getDailyConsumption,
   getStandingCharges,
   getUnitRates,
+  type AccountInfo,
   type MeterPoint,
 } from './api.ts'
-import { savingsChart } from './charts.ts'
-import { addDays, londonDate, longDay, todayLondon } from './dates.ts'
+import { costBars, savingsChart, COLORS, type CostRow } from './charts.ts'
+import { addDays, londonDate, longDay, shortDay, todayLondon } from './dates.ts'
 import { demoUsage } from './demo.ts'
 import { m3ToKwh } from './gas.ts'
 import {
+  avgRates,
+  byMonth,
   computeSavings,
-  dailyRateMap,
   directDebitOnly,
   pence,
   type FuelSavings,
 } from './pricing.ts'
 import { DEFAULT_VERSION, FLEX_PRODUCT, REGIONS, type Fuel } from './products.ts'
 import { clearCredentials, settings } from './storage.ts'
+import {
+  regionFromTariffCode,
+  stitchedTracker,
+  versionWindows,
+  windowsFromAgreements,
+  type TrackerWindow,
+} from './trackerRates.ts'
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T
 
@@ -35,12 +44,32 @@ const calorificInput = $<HTMLInputElement>('#calorific')
 const statusEl = $('#status')
 const resultsEl = $('#results')
 const headlineEl = $('#headline')
-const breakdownEl = $('#breakdown')
+const tariffLineEl = $('#tariff-line')
+const fuelTabsEl = $('#fuel-tabs')
+const barsTitleEl = $('#bars-title')
+const barsInnerEl = $('#bars-inner')
+const barsCanvas = $<HTMLCanvasElement>('#bars-chart')
+const statsEl = $('#stats')
+const detailSection = $<HTMLElement>('#detail-section')
 const tableWrap = $('#table-wrap')
-const chartCanvas = $<HTMLCanvasElement>('#savings-chart')
+const cumCanvas = $<HTMLCanvasElement>('#savings-chart')
 const demoBadge = $('#demo-badge')
+const customRangeEl = $('#custom-range')
+const dateFromInput = $<HTMLInputElement>('#date-from')
+const dateToInput = $<HTMLInputElement>('#date-to')
+const presetBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-preset]')]
+const modeBtns = [...document.querySelectorAll<HTMLButtonElement>('[data-mode]')]
 
-let chart: Chart | null = null
+let lastSource: 'real' | 'demo' | null = null
+let accountInfo: AccountInfo | null = null
+let data = new Map<Fuel, FuelSavings>()
+let rangeShown: { from: string; to: string } | null = null
+let activeFuel: Fuel = 'electricity'
+let mode: 'monthly' | 'daily' = 'monthly'
+let preset = 'tariff'
+let barsChart: Chart | null = null
+let cumChart: Chart | null = null
+let detailDirty = true
 
 for (const [letter, name] of Object.entries(REGIONS)) {
   regionSel.add(new Option(`${name} (${letter})`, letter))
@@ -50,6 +79,9 @@ apiKeyInput.value = settings.apiKey
 accountInput.value = settings.account
 gasUnitsSel.value = settings.gasUnits
 calorificInput.value = String(settings.calorificValue)
+dateFromInput.value = DEFAULT_VERSION.from
+dateToInput.value = todayLondon()
+dateToInput.max = todayLondon()
 
 regionSel.addEventListener('change', () => (settings.region = regionSel.value))
 
@@ -57,6 +89,8 @@ $('#clear-btn').addEventListener('click', () => {
   clearCredentials()
   apiKeyInput.value = ''
   accountInput.value = ''
+  accountInfo = null
+  lastSource = null
   resultsEl.hidden = true
   setStatus('Your details have been removed from this browser.')
 })
@@ -68,41 +102,72 @@ form.addEventListener('submit', (e) => {
 
 $('#demo-btn').addEventListener('click', () => void runDemo())
 
+for (const btn of presetBtns) {
+  btn.addEventListener('click', () => {
+    preset = btn.dataset.preset!
+    for (const b of presetBtns) b.classList.toggle('active', b === btn)
+    customRangeEl.hidden = preset !== 'custom'
+    if (preset !== 'custom') void rerun()
+  })
+}
+$('#apply-range').addEventListener('click', () => void rerun())
+
+for (const btn of modeBtns) {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode as 'monthly' | 'daily'
+    for (const b of modeBtns) b.classList.toggle('active', b === btn)
+    renderBars()
+  })
+}
+
+detailSection.addEventListener('toggle', () => {
+  if (detailSection.hasAttribute('open') && detailDirty) renderDetail()
+})
+
 function setStatus(msg: string, isError = false): void {
   statusEl.textContent = msg
   statusEl.classList.toggle('error', isError)
 }
 
 function setBusy(busy: boolean): void {
-  for (const b of form.querySelectorAll('button')) b.disabled = busy
-  ;($('#demo-btn') as HTMLButtonElement).disabled = busy
+  for (const b of document.querySelectorAll<HTMLButtonElement>('button')) b.disabled = busy
 }
 
-interface RatePack {
-  tracker: Map<string, number>
-  trackerSc: ReturnType<typeof directDebitOnly>
-  flex: ReturnType<typeof directDebitOnly>
-  flexSc: ReturnType<typeof directDebitOnly>
-}
-
-async function loadRates(fuel: Fuel, region: string, from: string): Promise<RatePack> {
-  const product = DEFAULT_VERSION.code
-  const [tr, trSc, fl, flSc] = await Promise.all([
-    getUnitRates(product, fuel, region, from),
-    getStandingCharges(product, fuel, region),
-    getUnitRates(FLEX_PRODUCT, fuel, region),
-    getStandingCharges(FLEX_PRODUCT, fuel, region),
-  ])
-  return {
-    tracker: dailyRateMap(tr),
-    trackerSc: directDebitOnly(trSc),
-    flex: directDebitOnly(fl),
-    flexSc: directDebitOnly(flSc),
+function resolveRange(): { from: string; to: string } {
+  const today = todayLondon()
+  switch (preset) {
+    case '30':
+      return { from: addDays(today, -29), to: today }
+    case '90':
+      return { from: addDays(today, -89), to: today }
+    case '365':
+      return { from: addDays(today, -364), to: today }
+    case 'custom': {
+      let from = dateFromInput.value || DEFAULT_VERSION.from
+      let to = dateToInput.value || today
+      if (to > today) to = today
+      if (from > to) [from, to] = [to, from]
+      return { from, to }
+    }
+    default:
+      return { from: DEFAULT_VERSION.from, to: today }
   }
 }
 
-function savingsFor(usage: Map<string, number>, rates: RatePack): FuelSavings {
-  return computeSavings(usage, rates.tracker, rates.trackerSc, rates.flex, rates.flexSc)
+async function computeFuel(
+  fuel: Fuel,
+  region: string,
+  from: string,
+  to: string,
+  windows: TrackerWindow[],
+  usage: Map<string, number>,
+): Promise<FuelSavings> {
+  const [tracker, fl, flSc] = await Promise.all([
+    stitchedTracker(fuel, region, from, to, windows),
+    getUnitRates(FLEX_PRODUCT, fuel, region),
+    getStandingCharges(FLEX_PRODUCT, fuel, region),
+  ])
+  return computeSavings(usage, tracker.rates, tracker.standing, directDebitOnly(fl), directDebitOnly(flSc))
 }
 
 async function consumptionFor(
@@ -140,42 +205,52 @@ async function runReal(): Promise<void> {
   settings.calorificValue = Number(calorificInput.value)
 
   setBusy(true)
-  demoBadge.hidden = true
   try {
     setStatus('Looking up your meters…')
-    const info = await getAccount(apiKey, account)
+    accountInfo = await getAccount(apiKey, account)
 
-    const tariffStart = DEFAULT_VERSION.from
-    const joined = info.trackerSince ? londonDate(info.trackerSince) : tariffStart
-    const from = joined > tariffStart ? joined : tariffStart
-    const to = todayLondon()
+    // pick the region straight from the user's own tariff code
+    for (const mp of accountInfo.meterPoints) {
+      const ag = mp.agreements.find((a) => a.tariff_code.includes('SILVER')) ?? mp.agreements[0]
+      const region = ag && regionFromTariffCode(ag.tariff_code)
+      if (region) {
+        regionSel.value = region
+        settings.region = region
+        break
+      }
+    }
 
+    const { from, to } = resolveRange()
     setStatus('Fetching your usage and daily prices…')
     const region = regionSel.value
-    const fuels: Fuel[] = [...new Set(info.meterPoints.map((m) => m.fuel))]
+    const fuels = [...new Set(accountInfo.meterPoints.map((m) => m.fuel))]
 
     const results = new Map<Fuel, FuelSavings>()
     for (const fuel of fuels) {
-      const points = info.meterPoints.filter((m) => m.fuel === fuel)
-      const [rates, ...usages] = await Promise.all([
-        loadRates(fuel, region, from),
-        ...points.map((mp) => consumptionFor(apiKey, mp, from, to)),
-      ])
+      const points = accountInfo.meterPoints.filter((m) => m.fuel === fuel)
+      const agreementWindows = windowsFromAgreements(points.flatMap((p) => p.agreements))
+      const windows = agreementWindows.length > 0 ? agreementWindows : versionWindows()
+      const usages = await Promise.all(points.map((mp) => consumptionFor(apiKey, mp, from, to)))
       const merged = new Map<string, number>()
       for (const u of usages) {
         for (const [d, kwh] of u) merged.set(d, (merged.get(d) ?? 0) + kwh)
       }
-      if (merged.size > 0) results.set(fuel, savingsFor(merged, rates))
+      if (merged.size === 0) continue
+      const r = await computeFuel(fuel, region, from, to, windows, merged)
+      if (r.days.length > 0) results.set(fuel, r)
     }
 
     if (results.size === 0) {
       setStatus(
-        'No smart-meter readings found since the tariff started — Octopus can take a day or two to publish them.',
+        'No usage found in that period while you were on Tracker — try a different date range, or note that Octopus can take a day or two to publish readings.',
         true,
       )
       return
     }
-    render(results, from, false)
+    lastSource = 'real'
+    data = results
+    rangeShown = { from, to }
+    render(false)
     setStatus('')
   } catch (err) {
     setStatus(err instanceof Error ? err.message : 'Something went wrong.', true)
@@ -188,14 +263,21 @@ async function runDemo(): Promise<void> {
   setBusy(true)
   try {
     setStatus('Loading demo with live prices and sample usage…')
+    const { from, to } = resolveRange()
     const region = regionSel.value
-    const from = DEFAULT_VERSION.from
     const results = new Map<Fuel, FuelSavings>()
     for (const fuel of ['electricity', 'gas'] as Fuel[]) {
-      const rates = await loadRates(fuel, region, from)
-      results.set(fuel, savingsFor(demoUsage(from, fuel), rates))
+      const r = await computeFuel(fuel, region, from, to, versionWindows(), demoUsage(from, fuel))
+      if (r.days.length > 0) results.set(fuel, r)
     }
-    render(results, from, true)
+    if (results.size === 0) {
+      setStatus('No Tracker prices exist in that period — try a different range.', true)
+      return
+    }
+    lastSource = 'demo'
+    data = results
+    rangeShown = { from, to }
+    render(true)
     setStatus('')
   } catch (err) {
     setStatus(err instanceof Error ? err.message : 'Something went wrong.', true)
@@ -204,35 +286,132 @@ async function runDemo(): Promise<void> {
   }
 }
 
-function render(results: Map<Fuel, FuelSavings>, from: string, isDemo: boolean): void {
-  const all = [...results.values()]
+async function rerun(): Promise<void> {
+  if (lastSource === 'real') await runReal()
+  else if (lastSource === 'demo') await runDemo()
+}
+
+function tariffLine(isDemo: boolean): string {
+  const period = rangeShown ? `${longDay(rangeShown.from)} → ${longDay(rangeShown.to)}` : ''
+  if (isDemo) return `Demo household · ${period} · ${REGIONS[regionSel.value]}`
+  const products = new Set<string>()
+  for (const mp of accountInfo?.meterPoints ?? []) {
+    for (const a of mp.agreements) {
+      if (a.tariff_code.includes('SILVER')) {
+        products.add(a.tariff_code.replace(/^[EG]-1R-/, '').replace(/-[A-P]$/, ''))
+      }
+    }
+  }
+  const tariffs = products.size > 0 ? `Tracker (${[...products].join(', ')})` : 'Tracker'
+  return `${tariffs} · ${period} · ${REGIONS[regionSel.value]}`
+}
+
+function render(isDemo: boolean): void {
+  resultsEl.hidden = false
+  demoBadge.hidden = !isDemo
+  tariffLineEl.textContent = tariffLine(isDemo)
+
+  const fuels = [...data.keys()]
+  if (!fuels.includes(activeFuel)) activeFuel = fuels[0]
+
+  fuelTabsEl.innerHTML = fuels
+    .map(
+      (f) =>
+        `<button role="tab" data-fuel="${f}" class="${f}${f === activeFuel ? ' active' : ''}" aria-selected="${f === activeFuel}">
+          ${f === 'electricity' ? '⚡ Electricity' : '🔥 Gas'}
+        </button>`,
+    )
+    .join('')
+  for (const btn of fuelTabsEl.querySelectorAll<HTMLButtonElement>('[data-fuel]')) {
+    btn.addEventListener('click', () => {
+      activeFuel = btn.dataset.fuel as Fuel
+      render(isDemo)
+    })
+  }
+
+  const all = [...data.values()]
   const totalSaved = all.reduce((a, r) => a + r.totalSaved, 0)
   const totalTracker = all.reduce((a, r) => a + r.totalTrackerCost, 0)
   const totalFlex = all.reduce((a, r) => a + r.totalFlexCost, 0)
-
-  demoBadge.hidden = !isDemo
-  resultsEl.hidden = false
-
   const won = totalSaved >= 0
-  headlineEl.className = won ? 'won' : 'lost'
+  headlineEl.className = won ? 'headline won' : 'headline lost'
   headlineEl.innerHTML = `
     <p class="headline-label">${won ? 'Tracker has saved you' : 'Tracker has cost you an extra'}</p>
     <p class="headline-figure">${pence(Math.abs(totalSaved))}</p>
-    <p class="headline-sub">since ${longDay(from)} · you paid ${pence(totalTracker)} vs ${pence(totalFlex)} on Flexible Octopus</p>`
+    <p class="headline-sub">you paid ${pence(totalTracker)} vs ${pence(totalFlex)} on Flexible Octopus${data.size > 1 ? ' (both fuels)' : ''}</p>`
 
-  breakdownEl.innerHTML = [...results.entries()]
-    .map(([fuel, r]) => {
-      const cls = fuel === 'electricity' ? 'elec' : 'gas'
-      return `
-      <article class="card ${cls}">
-        <header><span class="fuel-dot"></span>${fuel === 'electricity' ? 'Electricity' : 'Gas'}</header>
-        <p class="price"><strong>${pence(r.totalSaved)}</strong><span class="unit">${r.totalSaved >= 0 ? 'saved' : 'lost'}</span></p>
-        <footer>${r.totalKwh.toFixed(0)} kWh over ${r.days.length} days</footer>
-      </article>`
-    })
-    .join('')
+  renderStats()
+  renderBars()
+  detailDirty = true
+  if (detailSection.hasAttribute('open')) renderDetail()
+}
 
-  // cumulative chart across union of dates
+function renderStats(): void {
+  const r = data.get(activeFuel)
+  if (!r) return
+  const pct = r.totalFlexCost > 0 ? (r.totalSaved / r.totalFlexCost) * 100 : 0
+  const rates = avgRates(r.days)
+  const ratePct = rates.flex > 0 ? ((rates.flex - rates.tracker) / rates.flex) * 100 : 0
+  const fmtPct = (v: number) => `${v >= 0 ? '−' : '+'}${Math.abs(v).toFixed(0)}% vs Flexible`
+  const won = r.totalSaved >= 0
+  statsEl.innerHTML = `
+    <div class="stat">
+      <span class="stat-label">Total saving</span>
+      <span class="stat-value ${won ? 'won' : 'lost'}">${pence(r.totalSaved)}</span>
+      <span class="stat-sub">${fmtPct(pct)}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Average unit rate</span>
+      <span class="stat-value">${rates.tracker.toFixed(2)}p</span>
+      <span class="stat-sub">${fmtPct(ratePct)}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Total cost on Tracker</span>
+      <span class="stat-value">${pence(r.totalTrackerCost)}</span>
+      <span class="stat-sub">${r.totalKwh.toFixed(0)} kWh over ${r.days.length} days</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Flexible would've cost</span>
+      <span class="stat-value">${pence(r.totalFlexCost)}</span>
+      <span class="stat-sub">incl. standing charges</span>
+    </div>`
+}
+
+const DAILY_BAR_LIMIT = 92
+
+function renderBars(): void {
+  const r = data.get(activeFuel)
+  if (!r) return
+
+  let rows: CostRow[]
+  if (mode === 'monthly') {
+    barsTitleEl.textContent = 'Monthly breakdown'
+    rows = byMonth(r.days).map((m) => ({
+      label: m.label,
+      tracker: m.trackerCost / 100,
+      flex: m.flexCost / 100,
+      saved: m.saved / 100,
+    }))
+  } else {
+    const recent = r.days.slice(-DAILY_BAR_LIMIT).reverse()
+    barsTitleEl.textContent =
+      r.days.length > DAILY_BAR_LIMIT ? `Daily breakdown (last ${DAILY_BAR_LIMIT} days)` : 'Daily breakdown'
+    rows = recent.map((d) => ({
+      label: shortDay(d.date),
+      tracker: d.trackerCost / 100,
+      flex: d.flexCost / 100,
+      saved: d.saved / 100,
+    }))
+  }
+
+  barsInnerEl.style.height = `${Math.max(300, rows.length * 34 + 60)}px`
+  barsChart?.destroy()
+  barsChart = costBars(barsCanvas, rows, activeFuel === 'electricity' ? COLORS.elec : COLORS.gas)
+}
+
+function renderDetail(): void {
+  detailDirty = false
+  const all = [...data.values()]
   const dayTotals = new Map<string, number>()
   for (const r of all) {
     for (const d of r.days) dayTotals.set(d.date, (dayTotals.get(d.date) ?? 0) + d.saved)
@@ -243,10 +422,9 @@ function render(results: Map<Fuel, FuelSavings>, from: string, isDemo: boolean):
     acc += dayTotals.get(d)! / 100
     return Math.round(acc * 100) / 100
   })
-  chart?.destroy()
-  chart = savingsChart(chartCanvas, dates.map(longDay), cumulative)
+  cumChart?.destroy()
+  cumChart = savingsChart(cumCanvas, dates.map(longDay), cumulative)
 
-  // daily table, most recent first
   const rows = dates
     .slice()
     .reverse()
@@ -268,8 +446,6 @@ function render(results: Map<Fuel, FuelSavings>, from: string, isDemo: boolean):
       <thead><tr><th>Day</th><th>kWh</th><th>Tracker</th><th>Flexible</th><th>Saved</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`
-
-  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-$('#updated').textContent = `Prices include VAT. Last checked ${addDays(todayLondon(), 0)}.`
+$('#updated').textContent = `Prices include VAT. Last checked ${todayLondon()}.`

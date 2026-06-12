@@ -67,14 +67,14 @@ main,
 }
 
 main {
-  max-width: 980px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 0 20px 80px;
 }
 
 /* ---------- header ---------- */
 .site-header {
-  max-width: 980px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 22px 20px;
   display: flex;
@@ -560,7 +560,7 @@ td.lost {
 
 /* ---------- footer ---------- */
 .site-footer {
-  max-width: 980px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 28px 20px 44px;
   border-top: 1px solid var(--line);
@@ -599,5 +599,188 @@ td.lost {
   }
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* ---------- savings: range controls ---------- */
+.range-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 10px;
+}
+.range-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.custom-range {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.custom-range label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.custom-range input[type='date'] {
+  min-width: 160px;
+  padding: 8px 12px;
+  color-scheme: dark;
+}
+.custom-range button {
+  padding: 9px 16px;
+}
+
+/* ---------- savings: tariff line + fuel tabs ---------- */
+.tariff-line {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 0 0 18px;
+}
+
+.fuel-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.fuel-tabs button {
+  font: 700 0.9rem var(--display);
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+}
+.fuel-tabs button.electricity.active {
+  background: rgba(200, 240, 75, 0.12);
+  border-color: var(--elec);
+  color: var(--elec);
+}
+.fuel-tabs button.gas.active {
+  background: rgba(255, 180, 84, 0.12);
+  border-color: var(--gas);
+  color: var(--gas);
+}
+
+/* ---------- savings: bars + stats layout ---------- */
+.savings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+}
+.pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pane-head h2 {
+  margin: 0;
+}
+
+.bars-box {
+  background: linear-gradient(160deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  max-height: 640px;
+  overflow-y: auto;
+}
+.bars-inner {
+  position: relative;
+}
+.flex-key {
+  color: var(--gas);
+  font-weight: 700;
+}
+
+.stats-pane {
+  display: grid;
+  gap: 12px;
+}
+.stat {
+  background: linear-gradient(160deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.stat-value {
+  font-family: var(--mono);
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.stat-value.won {
+  color: var(--elec);
+  text-shadow: 0 0 22px rgba(200, 240, 75, 0.3);
+}
+.stat-value.lost {
+  color: var(--up);
+  text-shadow: 0 0 22px rgba(255, 107, 129, 0.3);
+}
+.stat-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+/* ---------- savings: collapsible detail ---------- */
+.detail-section {
+  margin-top: 34px;
+  border-top: 1px solid var(--line);
+}
+.detail-section summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 16px 28px 16px 0;
+  list-style: none;
+  position: relative;
+}
+.detail-section summary::-webkit-details-marker {
+  display: none;
+}
+.detail-section summary::after {
+  content: '+';
+  position: absolute;
+  right: 4px;
+  color: var(--elec);
+  font-family: var(--mono);
+}
+.detail-section[open] summary::after {
+  content: '−';
+}
+
+@media (max-width: 980px) {
+  .savings-layout {
+    grid-template-columns: 1fr;
+  }
+  .stats-pane {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 }

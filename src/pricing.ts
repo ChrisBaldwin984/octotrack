@@ -56,7 +56,7 @@ export interface FuelSavings {
 export function computeSavings(
   usage: Map<string, number>,
   trackerRates: Map<string, number>,
-  trackerStanding: Rate[],
+  trackerStanding: Map<string, number>,
   flexRates: Rate[],
   flexStanding: Rate[],
 ): FuelSavings {
@@ -64,7 +64,7 @@ export function computeSavings(
   for (const [date, kwh] of [...usage.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
     const trackerRate = trackerRates.get(date)
     const flexRate = rateOn(flexRates, date)
-    const trSc = rateOn(trackerStanding, date)
+    const trSc = trackerStanding.get(date)
     const flSc = rateOn(flexStanding, date)
     if (trackerRate == null || flexRate == null || trSc == null || flSc == null) continue
     const trackerCost = kwh * trackerRate + trSc
@@ -84,4 +84,47 @@ export function computeSavings(
 export function pence(p: number): string {
   const pounds = Math.abs(p) / 100
   return `${p < 0 ? '−' : ''}£${pounds.toFixed(2)}`
+}
+
+export interface MonthRow {
+  /** YYYY-MM */
+  month: string
+  /** e.g. "Jun 26" */
+  label: string
+  kwh: number
+  trackerCost: number
+  flexCost: number
+  saved: number
+}
+
+/** Aggregate day costs into calendar months, newest first. */
+export function byMonth(days: DayCost[]): MonthRow[] {
+  const months = new Map<string, MonthRow>()
+  for (const d of days) {
+    const month = d.date.slice(0, 7)
+    let row = months.get(month)
+    if (!row) {
+      const label = new Date(month + '-15T12:00:00Z').toLocaleDateString('en-GB', {
+        month: 'short',
+        year: '2-digit',
+      })
+      row = { month, label, kwh: 0, trackerCost: 0, flexCost: 0, saved: 0 }
+      months.set(month, row)
+    }
+    row.kwh += d.kwh
+    row.trackerCost += d.trackerCost
+    row.flexCost += d.flexCost
+    row.saved += d.saved
+  }
+  return [...months.values()].sort((a, b) => (a.month > b.month ? -1 : 1))
+}
+
+/** Consumption-weighted average unit rates, p/kWh. */
+export function avgRates(days: DayCost[]): { tracker: number; flex: number } {
+  const kwh = days.reduce((a, d) => a + d.kwh, 0)
+  if (kwh === 0) return { tracker: 0, flex: 0 }
+  return {
+    tracker: days.reduce((a, d) => a + d.kwh * d.trackerRate, 0) / kwh,
+    flex: days.reduce((a, d) => a + d.kwh * d.flexRate, 0) / kwh,
+  }
 }

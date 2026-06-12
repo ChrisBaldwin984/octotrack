@@ -11,7 +11,8 @@
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.5",
     "@fontsource-variable/spline-sans-mono": "^5.2.5",
-    "chart.js": "^4.4.9"
+    "chart.js": "^4.4.9",
+    "chartjs-plugin-zoom": "^2.2.0"
   },
   "devDependencies": {
     "typescript": "~5.8.3",

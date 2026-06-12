@@ -27,7 +27,7 @@ let loaded: {
   flexElec: Rate[]
   flexGas: Rate[]
 } | null = null
-let range = 30
+let range = 7
 
 for (const [letter, name] of Object.entries(REGIONS)) {
   regionSel.add(new Option(`${name} (${letter})`, letter))
@@ -50,7 +50,7 @@ for (const btn of rangeBtns) {
   btn.addEventListener('click', () => {
     range = Number(btn.dataset.range)
     for (const b of rangeBtns) b.classList.toggle('active', b === btn)
-    renderChart()
+    applyRange()
   })
 }
 
@@ -151,8 +151,7 @@ async function load(): Promise<void> {
 
 function renderChart(): void {
   if (!loaded) return
-  const allDates = [...loaded.elec.keys()].sort()
-  const dates = range > 0 ? allDates.slice(-range) : allDates
+  const dates = [...loaded.elec.keys()].sort()
   const labels = dates.map(shortDay)
 
   const series: Series[] = [
@@ -164,6 +163,16 @@ function renderChart(): void {
 
   chart?.destroy()
   chart = priceChart(chartCanvas, labels, series, 'p')
+  applyRange()
+}
+
+function applyRange(): void {
+  if (!chart) return
+  const n = chart.data.labels?.length ?? 0
+  const x = chart.options.scales!.x as { min?: number; max?: number }
+  x.min = range > 0 ? Math.max(0, n - range) : 0
+  x.max = n - 1
+  chart.update()
 }
 
 $('#updated').textContent = `Prices include VAT. Last checked ${londonDate(new Date())}.`
