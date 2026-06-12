@@ -322,6 +322,11 @@ button:focus-visible {
   flex-wrap: wrap;
   gap: 12px;
 }
+.chart-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 h2 {
   font-size: 1.15rem;
   letter-spacing: -0.02em;
