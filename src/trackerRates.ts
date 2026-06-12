@@ -39,6 +39,36 @@ export interface TrackerRates {
   standing: Map<string, number>
 }
 
+function clampedWindows(windows: TrackerWindow[], from: string, to: string) {
+  return windows
+    .filter((w) => (w.to === null || w.to > from) && w.from <= to)
+    .map((w) => ({
+      product: w.product,
+      start: w.from > from ? w.from : from,
+      end: w.to !== null && w.to < to ? w.to : to,
+    }))
+}
+
+/** Daily unit rates stitched across whichever Tracker product applied on each day. */
+export async function stitchedUnitRates(
+  fuel: Fuel,
+  region: string,
+  from: string,
+  to: string,
+  windows: TrackerWindow[],
+): Promise<Map<string, number>> {
+  const rates = new Map<string, number>()
+  await Promise.all(
+    clampedWindows(windows, from, to).map(async (w) => {
+      const unit = await getUnitRates(w.product, fuel, region, w.start, w.end)
+      for (const [d, v] of dailyRateMap(unit)) {
+        if (d >= w.start && d <= w.end) rates.set(d, v)
+      }
+    }),
+  )
+  return rates
+}
+
 export async function stitchedTracker(
   fuel: Fuel,
   region: string,
@@ -46,27 +76,17 @@ export async function stitchedTracker(
   to: string,
   windows: TrackerWindow[],
 ): Promise<TrackerRates> {
-  const rates = new Map<string, number>()
   const standing = new Map<string, number>()
-  const overlapping = windows.filter((w) => (w.to === null || w.to > from) && w.from <= to)
-
-  await Promise.all(
-    overlapping.map(async (w) => {
-      const start = w.from > from ? w.from : from
-      const end = w.to !== null && w.to < to ? w.to : to
-      const [unit, sc] = await Promise.all([
-        getUnitRates(w.product, fuel, region, start, end),
-        getStandingCharges(w.product, fuel, region),
-      ])
-      for (const [d, v] of dailyRateMap(unit)) {
-        if (d >= start && d <= end) rates.set(d, v)
-      }
+  const [rates] = await Promise.all([
+    stitchedUnitRates(fuel, region, from, to, windows),
+    ...clampedWindows(windows, from, to).map(async (w) => {
+      const sc = await getStandingCharges(w.product, fuel, region)
       const scDd = directDebitOnly(sc)
-      for (let d = start; d <= end; d = addDays(d, 1)) {
+      for (let d = w.start; d <= w.end; d = addDays(d, 1)) {
         const v = rateOn(scDd, d)
         if (v !== null) standing.set(d, v)
       }
     }),
-  )
+  ])
   return { rates, standing }
 }

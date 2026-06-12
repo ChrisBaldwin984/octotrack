@@ -380,6 +380,18 @@ h2 {
 .chart-fuel-title.gas {
   color: var(--gas);
 }
+.grade-key {
+  font-weight: 700;
+}
+.grade-good {
+  color: hsl(110, 85%, 58%);
+}
+.grade-mid {
+  color: hsl(37, 85%, 58%);
+}
+.grade-bad {
+  color: hsl(0, 85%, 58%);
+}
 
 /* ---------- FAQ ---------- */
 .faq {

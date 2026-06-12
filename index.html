@@ -9,6 +9,9 @@
       content="Live daily prices for the Octopus Energy Tracker tariff, including Tracker April 2026 v1. No sign-up, no tracking — your data stays in your browser."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0a0f1e" />
     <title>OctoTrack — Octopus Tracker daily prices</title>
     <script type="module" src="/src/tracker.ts"></script>
   </head>
@@ -55,9 +58,11 @@
         <div class="chart-head">
           <h2>Price history</h2>
           <div class="range-toggle" role="group" aria-label="Chart range">
-            <button data-range="7" class="active">7 days</button>
-            <button data-range="30">30 days</button>
-            <button data-range="90">90 days</button>
+            <button data-range="7" class="active">7d</button>
+            <button data-range="30">30d</button>
+            <button data-range="90">90d</button>
+            <button data-range="180">6m</button>
+            <button data-range="365">1y</button>
             <button data-range="0">All</button>
           </div>
         </div>
@@ -65,7 +70,13 @@
         <div class="chart-box chart-box--split"><canvas id="elec-chart"></canvas></div>
         <h3 class="chart-fuel-title gas">🔥 Gas</h3>
         <div class="chart-box chart-box--split"><canvas id="gas-chart"></canvas></div>
-        <p class="chart-note">Drag a chart to pan back in time, scroll or pinch to zoom. Dashed lines show Flexible Octopus (the standard variable tariff) for comparison.</p>
+        <p class="chart-note">
+          Drag a chart to pan back in time, scroll or pinch to zoom. The dashed line is Flexible
+          Octopus (the price-capped standard variable tariff). The Tracker line is colour-graded
+          against it: <span class="grade-key grade-good">green</span> = well below the cap,
+          <span class="grade-key grade-mid">amber</span> = close to it,
+          <span class="grade-key grade-bad">red</span> = above it.
+        </p>
       </section>
 
       <section class="faq">

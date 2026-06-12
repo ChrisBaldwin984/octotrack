@@ -24,7 +24,10 @@ import {
   type FuelSavings,
 } from './pricing.ts'
 import { DEFAULT_VERSION, FLEX_PRODUCT, REGIONS, type Fuel } from './products.ts'
+import { registerServiceWorker } from './pwa.ts'
 import { clearCredentials, settings } from './storage.ts'
+
+registerServiceWorker()
 import {
   regionFromTariffCode,
   stitchedTracker,

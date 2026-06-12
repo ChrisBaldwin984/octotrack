@@ -65,11 +65,23 @@ export interface Series {
   color: string
   dashed?: boolean
   fill?: boolean
+  /** Reference values (e.g. SVT/price-cap rate per day): the line is colour-graded
+   *  green when well below the reference, amber near it, red above it. */
+  gradeAgainst?: (number | null)[]
 }
 
 /** "7.200000000000001p" -> "7.2p" */
 function tickLabel(v: number | string, unit: string): string {
   return `${parseFloat(Number(v).toFixed(2))}${unit}`
+}
+
+/** Map "how far below the reference price" to a hue: red (above) -> amber (at) -> green (well below). */
+function gradeColor(value: number, reference: number): string {
+  if (reference <= 0) return COLORS.tick
+  const diff = (reference - value) / reference
+  const t = Math.max(-0.2, Math.min(0.4, diff))
+  const hue = ((t + 0.2) / 0.6) * 110
+  return `hsl(${Math.round(hue)}, 85%, 58%)`
 }
 
 export function priceChart(canvas: HTMLCanvasElement, labels: string[], series: Series[], unit: string): Chart {
@@ -82,13 +94,23 @@ export function priceChart(canvas: HTMLCanvasElement, labels: string[], series: 
         data: s.data,
         borderColor: s.color,
         backgroundColor: s.fill ? s.color + '22' : s.color,
-        borderWidth: 2,
+        borderWidth: 1.5,
         borderDash: s.dashed ? [6, 4] : undefined,
         pointRadius: 0,
         pointHitRadius: 12,
         fill: s.fill ?? false,
         stepped: true,
         spanGaps: true,
+        segment: s.gradeAgainst
+          ? {
+              borderColor: (ctx) => {
+                const i = ctx.p1DataIndex
+                const v = s.data[i]
+                const ref = s.gradeAgainst![i]
+                return v != null && ref != null ? gradeColor(v, ref) : s.color
+              },
+            }
+          : undefined,
       })),
     },
     options: {

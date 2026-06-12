@@ -8,7 +8,11 @@ import { COLORS, priceChart, type Series } from './charts.ts'
 import { addDays, londonDate, shortDay, todayLondon } from './dates.ts'
 import { dailyRateMap, directDebitOnly, rateOn } from './pricing.ts'
 import { CAPS, DEFAULT_VERSION, FLEX_PRODUCT, REGIONS, TRACKER_VERSIONS, versionByCode, type Fuel } from './products.ts'
+import { registerServiceWorker } from './pwa.ts'
 import { settings } from './storage.ts'
+import { stitchedUnitRates, versionWindows } from './trackerRates.ts'
+
+registerServiceWorker()
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T
 
@@ -107,9 +111,21 @@ async function load(): Promise<void> {
   cardsEl.classList.add('loading')
 
   try {
-    const [elecRates, gasRates, flexElec, flexGas, scElec, scGas] = await Promise.all([
-      getUnitRates(version.code, 'electricity', region, version.from),
-      getUnitRates(version.code, 'gas', region, version.from),
+    // For the current product, chart a full year by stitching daily rates across
+    // whichever Tracker version was live on each day. Historic products chart
+    // their own lifetime only.
+    const isCurrent = version.to === null
+    const yearAgo = addDays(todayLondon(), -364)
+    const chartEnd = addDays(todayLondon(), 1)
+
+    const fetchTracker = (fuel: Fuel): Promise<Map<string, number>> =>
+      isCurrent
+        ? stitchedUnitRates(fuel, region, yearAgo, chartEnd, versionWindows())
+        : getUnitRates(version.code, fuel, region, version.from).then(dailyRateMap)
+
+    const [elecMap, gasMap, flexElec, flexGas, scElec, scGas] = await Promise.all([
+      fetchTracker('electricity'),
+      fetchTracker('gas'),
       getUnitRates(FLEX_PRODUCT, 'electricity', region),
       getUnitRates(FLEX_PRODUCT, 'gas', region),
       getStandingCharges(version.code, 'electricity', region),
@@ -117,8 +133,8 @@ async function load(): Promise<void> {
     ])
 
     loaded = {
-      elec: dailyRateMap(elecRates),
-      gas: dailyRateMap(gasRates),
+      elec: elecMap,
+      gas: gasMap,
       flexElec: directDebitOnly(flexElec),
       flexGas: directDebitOnly(flexGas),
     }
@@ -155,13 +171,26 @@ function renderChart(): void {
   const dates = [...loaded.elec.keys()].sort()
   const labels = dates.map(shortDay)
 
+  const flexElecData = dates.map((d) => rateOn(loaded!.flexElec, d))
+  const flexGasData = dates.map((d) => rateOn(loaded!.flexGas, d))
+
   const elecSeries: Series[] = [
-    { label: 'Tracker electricity', data: dates.map((d) => loaded!.elec.get(d) ?? null), color: COLORS.elec, fill: true },
-    { label: 'Flexible electricity', data: dates.map((d) => rateOn(loaded!.flexElec, d)), color: COLORS.flex, dashed: true },
+    {
+      label: 'Tracker electricity',
+      data: dates.map((d) => loaded!.elec.get(d) ?? null),
+      color: COLORS.elec,
+      gradeAgainst: flexElecData,
+    },
+    { label: 'Flexible electricity (price cap)', data: flexElecData, color: COLORS.flex, dashed: true },
   ]
   const gasSeries: Series[] = [
-    { label: 'Tracker gas', data: dates.map((d) => loaded!.gas.get(d) ?? null), color: COLORS.gas, fill: true },
-    { label: 'Flexible gas', data: dates.map((d) => rateOn(loaded!.flexGas, d)), color: '#7d6b8c', dashed: true },
+    {
+      label: 'Tracker gas',
+      data: dates.map((d) => loaded!.gas.get(d) ?? null),
+      color: COLORS.gas,
+      gradeAgainst: flexGasData,
+    },
+    { label: 'Flexible gas (price cap)', data: flexGasData, color: '#7d6b8c', dashed: true },
   ]
 
   for (const c of charts) c.destroy()
