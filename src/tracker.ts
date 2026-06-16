@@ -3,7 +3,7 @@ import '@fontsource-variable/spline-sans-mono'
 import './style.css'
 
 import type { Chart } from 'chart.js'
-import { getStandingCharges, getUnitRates, type Rate } from './api.ts'
+import { getStandingCharges, getUnitRates, regionFromPostcode, type Rate } from './api.ts'
 import { COLORS, priceChart, type Series } from './charts.ts'
 import { addDays, londonDate, shortDay, todayLondon } from './dates.ts'
 import { dailyRateMap, directDebitOnly, rateOn } from './pricing.ts'
@@ -17,6 +17,8 @@ registerServiceWorker()
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T
 
 const regionSel = $<HTMLSelectElement>('#region')
+const postcodeInput = $<HTMLInputElement>('#postcode')
+const postcodeHint = $('#postcode-hint')
 const versionSel = $<HTMLSelectElement>('#version')
 const statusEl = $('#status')
 const cardsEl = $('#cards')
@@ -41,7 +43,42 @@ for (const v of TRACKER_VERSIONS) {
   versionSel.add(new Option(`Tracker ${v.name}${v.to === null ? ' — current' : ''}`, v.code))
 }
 regionSel.value = settings.region
+postcodeInput.value = settings.postcode
 versionSel.value = versionByCode(settings.version || DEFAULT_VERSION.code).code
+
+function setPostcodeHint(msg: string, isError = false): void {
+  postcodeHint.textContent = msg
+  postcodeHint.classList.toggle('error', isError)
+}
+
+if (settings.postcode && settings.region in REGIONS) {
+  setPostcodeHint(`Region: ${REGIONS[settings.region]} (${settings.region})`)
+}
+
+async function lookupPostcode(): Promise<void> {
+  const pc = postcodeInput.value.trim()
+  if (!pc) {
+    setPostcodeHint('Enter your postcode to set your region')
+    return
+  }
+  settings.postcode = pc
+  setPostcodeHint('Finding your region…')
+  try {
+    const region = await regionFromPostcode(pc)
+    if (!region) {
+      setPostcodeHint("Couldn't match that postcode — pick your region below.", true)
+      return
+    }
+    regionSel.value = region
+    settings.region = region
+    setPostcodeHint(`Region: ${REGIONS[region]} (${region})`)
+    void load()
+  } catch {
+    setPostcodeHint("Couldn't look that up just now — pick your region below.", true)
+  }
+}
+
+postcodeInput.addEventListener('change', () => void lookupPostcode())
 
 regionSel.addEventListener('change', () => {
   settings.region = regionSel.value

@@ -458,13 +458,16 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
-.connect-form small {
+.connect-form small,
+.controls small {
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
   font-size: 0.78rem;
+  color: var(--muted);
 }
-.connect-form small.error {
+.connect-form small.error,
+.controls small.error {
   color: var(--up);
 }
 .connect-form input,
