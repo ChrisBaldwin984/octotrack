@@ -8,6 +8,7 @@ import {
   getDailyConsumption,
   getStandingCharges,
   getUnitRates,
+  regionFromPostcode,
   type AccountInfo,
   type MeterPoint,
 } from './api.ts'
@@ -41,6 +42,8 @@ const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as
 const form = $<HTMLFormElement>('#connect-form')
 const apiKeyInput = $<HTMLInputElement>('#api-key')
 const accountInput = $<HTMLInputElement>('#account')
+const postcodeInput = $<HTMLInputElement>('#postcode')
+const postcodeHint = $('#postcode-hint')
 const regionSel = $<HTMLSelectElement>('#region')
 const gasUnitsSel = $<HTMLSelectElement>('#gas-units')
 const calorificInput = $<HTMLInputElement>('#calorific')
@@ -80,6 +83,7 @@ for (const [letter, name] of Object.entries(REGIONS)) {
 regionSel.value = settings.region
 apiKeyInput.value = settings.apiKey
 accountInput.value = settings.account
+postcodeInput.value = settings.postcode
 gasUnitsSel.value = settings.gasUnits
 calorificInput.value = String(settings.calorificValue)
 dateFromInput.value = DEFAULT_VERSION.from
@@ -88,10 +92,46 @@ dateToInput.max = todayLondon()
 
 regionSel.addEventListener('change', () => (settings.region = regionSel.value))
 
+function setPostcodeHint(msg: string, isError = false): void {
+  postcodeHint.textContent = msg
+  postcodeHint.classList.toggle('error', isError)
+}
+
+// Show the matched region name if a postcode was already saved.
+if (settings.postcode && settings.region in REGIONS) {
+  setPostcodeHint(`Region: ${REGIONS[settings.region]} (${settings.region})`)
+}
+
+async function lookupPostcode(): Promise<void> {
+  const pc = postcodeInput.value.trim()
+  if (!pc) {
+    setPostcodeHint('Enter your postcode to set your region automatically')
+    return
+  }
+  settings.postcode = pc
+  setPostcodeHint('Finding your region…')
+  try {
+    const region = await regionFromPostcode(pc)
+    if (!region) {
+      setPostcodeHint("Couldn't match that postcode — pick your region below.", true)
+      return
+    }
+    regionSel.value = region
+    settings.region = region
+    setPostcodeHint(`Region: ${REGIONS[region]} (${region})`)
+  } catch {
+    setPostcodeHint("Couldn't look that up just now — pick your region below.", true)
+  }
+}
+
+postcodeInput.addEventListener('change', () => void lookupPostcode())
+
 $('#clear-btn').addEventListener('click', () => {
   clearCredentials()
   apiKeyInput.value = ''
   accountInput.value = ''
+  postcodeInput.value = ''
+  setPostcodeHint('Enter your postcode to set your region automatically')
   accountInfo = null
   lastSource = null
   resultsEl.hidden = true
@@ -207,6 +247,11 @@ async function runReal(): Promise<void> {
   settings.gasUnits = gasUnitsSel.value as 'm3' | 'kwh'
   settings.calorificValue = Number(calorificInput.value)
 
+  // Never let a previous demo view (and its badge) linger if the connect
+  // fails or returns no usage — clear it before we start.
+  lastSource = null
+  demoBadge.hidden = true
+
   setBusy(true)
   try {
     setStatus('Looking up your meters…')
@@ -244,6 +289,7 @@ async function runReal(): Promise<void> {
     }
 
     if (results.size === 0) {
+      resultsEl.hidden = true
       setStatus(
         'No usage found in that period while you were on Tracker — try a different date range, or note that Octopus can take a day or two to publish readings.',
         true,

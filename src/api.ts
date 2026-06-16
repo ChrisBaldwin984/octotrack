@@ -1,4 +1,4 @@
-import { tariffCode, type Fuel } from './products.ts'
+import { REGIONS, tariffCode, type Fuel } from './products.ts'
 
 const BASE = 'https://api.octopus.energy/v1'
 
@@ -79,6 +79,22 @@ async function getAllPages<T>(url: string, apiKey?: string): Promise<T[]> {
     next = page.next
   }
   return out
+}
+
+/**
+ * GSP region letter (A–P) for a UK postcode, via Octopus's public
+ * grid-supply-points endpoint. No API key needed. Returns null if the
+ * postcode isn't recognised.
+ */
+export async function regionFromPostcode(postcode: string): Promise<string | null> {
+  const pc = postcode.replace(/\s+/g, '').toUpperCase()
+  if (!pc) return null
+  const data = await getJson<Paged<{ group_id: string }>>(
+    `${BASE}/industry/grid-supply-points/?postcode=${encodeURIComponent(pc)}`,
+  )
+  const group = data.results[0]?.group_id // e.g. "_C"
+  const letter = group?.replace(/^_/, '') ?? null
+  return letter && letter in REGIONS ? letter : null
 }
 
 function tariffPath(product: string, fuel: Fuel, region: string): string {

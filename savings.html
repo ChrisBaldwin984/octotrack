@@ -59,9 +59,14 @@
             <small>Starts with “A-”, shown on every Octopus email</small>
           </label>
           <label>
+            Postcode
+            <input id="postcode" type="text" autocomplete="postal-code" spellcheck="false" placeholder="e.g. SW1A 1AA" />
+            <small id="postcode-hint">Enter your postcode to set your region automatically</small>
+          </label>
+          <label>
             Region
             <select id="region"></select>
-            <small>Auto-detected from your tariff when you connect</small>
+            <small>Auto-detected from your postcode or tariff</small>
           </label>
           <label>
             Gas meter reports

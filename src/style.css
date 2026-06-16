@@ -464,6 +464,9 @@ h2 {
   letter-spacing: 0;
   font-size: 0.78rem;
 }
+.connect-form small.error {
+  color: var(--up);
+}
 .connect-form input,
 .connect-form select {
   min-width: 0;
@@ -500,6 +503,10 @@ button.primary {
 button.ghost {
   background: transparent;
   color: var(--muted);
+}
+
+.demo-badge[hidden] {
+  display: none;
 }
 
 .demo-badge {

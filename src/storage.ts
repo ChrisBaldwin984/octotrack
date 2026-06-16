@@ -56,6 +56,13 @@ export const settings = {
     set('account', v)
   },
 
+  get postcode(): string {
+    return get('postcode') ?? ''
+  },
+  set postcode(v: string) {
+    set('postcode', v)
+  },
+
   /** 'm3' (SMETS2, needs conversion) or 'kwh' (SMETS1) */
   get gasUnits(): 'm3' | 'kwh' {
     return get('gasUnits') === 'kwh' ? 'kwh' : 'm3'
@@ -76,4 +83,5 @@ export const settings = {
 export function clearCredentials(): void {
   remove('apiKey')
   remove('account')
+  remove('postcode')
 }
