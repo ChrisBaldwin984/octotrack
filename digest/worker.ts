@@ -147,13 +147,13 @@ async function buildDigest(env: Env): Promise<string> {
 
   const today = todayLondon()
   const tomorrow = addDays(today, 1)
-  const since = addDays(today, -89) // widest window (90 days)
+  const since = addDays(today, -364) // widest window (rolling 12 months)
   const fuels = [...new Set(account.meterPoints.map((m) => m.fuel))] as Fuel[]
 
   // --- Today/tomorrow unit price vs Flexible (no consumption needed) ---
   const priceLines: string[] = []
   // --- Rolling savings, combined across fuels ---
-  const totals = { d7: 0, d30: 0, d90: 0 }
+  const totals = { d7: 0, d30: 0, d90: 0, d180: 0, d365: 0 }
   let lastUsageDate = ''
 
   for (const fuel of fuels) {
@@ -183,7 +183,9 @@ async function buildDigest(env: Env): Promise<string> {
     if (r.days.length === 0) continue
     totals.d7 += savedSince(r.days, addDays(today, -6))
     totals.d30 += savedSince(r.days, addDays(today, -29))
-    totals.d90 += savedSince(r.days, since)
+    totals.d90 += savedSince(r.days, addDays(today, -89))
+    totals.d180 += savedSince(r.days, addDays(today, -179))
+    totals.d365 += savedSince(r.days, since)
     const latest = r.days[r.days.length - 1].date
     if (latest > lastUsageDate) lastUsageDate = latest
   }
@@ -200,6 +202,8 @@ async function buildDigest(env: Env): Promise<string> {
     savingLine('Last 7 days', totals.d7),
     savingLine('Last 30 days', totals.d30),
     savingLine('Last 90 days', totals.d90),
+    savingLine('Last 6 months', totals.d180),
+    savingLine('Last 12 months', totals.d365),
   ]
   if (lastUsageDate) lines.push(``, `<i>Based on your usage up to ${longDay(lastUsageDate)}.</i>`)
   return lines.join('\n')
