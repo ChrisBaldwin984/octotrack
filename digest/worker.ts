@@ -18,7 +18,6 @@ import { m3ToKwh } from '../src/gas.ts'
 import {
   computeSavings,
   directDebitOnly,
-  pence,
   rateOn,
   type DayCost,
   type FuelSavings,
@@ -68,12 +67,24 @@ async function sendTelegram(env: Env, text: string): Promise<void> {
   if (!res.ok) throw new Error(`Telegram send failed (HTTP ${res.status}): ${await res.text()}`)
 }
 
-/** "12% cheaper" / "8% dearer" / "pending" — tracker unit rate vs Flexible. */
+// Telegram has no text colour, so green/red is conveyed with dot emoji.
+const GREEN = '🟢'
+const RED = '🔴'
+const NEUTRAL = '⚪'
+
+/** "🟢 12% cheaper" / "🔴 8% dearer" / "⚪ pending" — tracker unit rate vs Flexible. */
 function vsFlexLabel(tracker: number | undefined, flex: number | null): string {
-  if (tracker == null) return 'pending'
-  if (flex == null || flex <= 0) return 'n/a'
+  if (tracker == null) return `${NEUTRAL} pending`
+  if (flex == null || flex <= 0) return `${NEUTRAL} n/a`
   const pct = ((flex - tracker) / flex) * 100
-  return pct >= 0 ? `${pct.toFixed(0)}% cheaper` : `${Math.abs(pct).toFixed(0)}% dearer`
+  return pct >= 0 ? `${GREEN} ${pct.toFixed(0)}% cheaper` : `${RED} ${Math.abs(pct).toFixed(0)}% dearer`
+}
+
+/** "🟢 +£2.67" (saved) / "🔴 −£1.20" (cost more). */
+function savingLine(label: string, p: number): string {
+  const good = p >= 0
+  const amt = `${good ? '+' : '−'}£${(Math.abs(p) / 100).toFixed(2)}`
+  return `${good ? GREEN : RED} ${label}: <b>${amt}</b>`
 }
 
 /** Daily consumption for a meter point, aggregated by UK day and in kWh. */
@@ -157,8 +168,9 @@ async function buildDigest(env: Env): Promise<string> {
     ])
     const flx = directDebitOnly(flxRaw)
     priceLines.push(
-      `${FUEL_EMOJI[fuel]} ${FUEL_NAME[fuel]}: today ${vsFlexLabel(trk.get(today), rateOn(flx, today))}` +
-        ` · tomorrow ${vsFlexLabel(trk.get(tomorrow), rateOn(flx, tomorrow))}`,
+      `${FUEL_EMOJI[fuel]} <b>${FUEL_NAME[fuel]}</b>`,
+      `    Today:    ${vsFlexLabel(trk.get(today), rateOn(flx, today))}`,
+      `    Tomorrow: ${vsFlexLabel(trk.get(tomorrow), rateOn(flx, tomorrow))}`,
     )
 
     // Savings over the last 90 days, sliced into 7/30/90.
@@ -181,15 +193,15 @@ async function buildDigest(env: Env): Promise<string> {
     `⚡🔥 <b>OctoTrack daily digest</b>`,
     `<i>${regionName} · ${longDay(today)}</i>`,
     ``,
-    `<b>Unit price vs Flexible Octopus</b>`,
+    `<b>📊 Price vs Flexible Octopus</b>`,
     ...priceLines,
     ``,
-    `<b>Tracker savings vs Flexible</b>`,
-    `Last 7 days: <b>${pence(totals.d7)}</b>`,
-    `Last 30 days: <b>${pence(totals.d30)}</b>`,
-    `Last 90 days: <b>${pence(totals.d90)}</b>`,
+    `<b>💰 Tracker savings vs Flexible</b>`,
+    savingLine('Last 7 days', totals.d7),
+    savingLine('Last 30 days', totals.d30),
+    savingLine('Last 90 days', totals.d90),
   ]
-  if (lastUsageDate) lines.push(`<i>Savings based on usage up to ${longDay(lastUsageDate)}.</i>`)
+  if (lastUsageDate) lines.push(``, `<i>Based on your usage up to ${longDay(lastUsageDate)}.</i>`)
   return lines.join('\n')
 }
 
