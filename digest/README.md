@@ -10,8 +10,8 @@ It reuses the site's logic modules in `../src` (no duplicated savings maths).
 
 ## What it sends
 
-- ⚡🔥 Today & tomorrow unit price vs Flexible Octopus (% cheaper/dearer), per fuel.
-- Tracker savings vs Flexible over the rolling **last 7 / 30 / 90 days**.
+- ⚡🔥 Today & tomorrow unit price vs Flexible Octopus (actual p/kWh rates + % cheaper/dearer), per fuel.
+- Tracker savings vs Flexible: the latest day plus rolling **7 / 30 / 90 / 180 / 365 days**.
 
 ## Deploy
 

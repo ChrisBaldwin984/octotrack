@@ -13,7 +13,7 @@ import {
   getUnitRates,
   type MeterPoint,
 } from '../src/api.ts'
-import { addDays, londonDate, longDay, todayLondon } from '../src/dates.ts'
+import { addDays, londonDate, longDay, shortDay, todayLondon } from '../src/dates.ts'
 import { m3ToKwh } from '../src/gas.ts'
 import {
   computeSavings,
@@ -72,12 +72,15 @@ const GREEN = '🟢'
 const RED = '🔴'
 const NEUTRAL = '⚪'
 
-/** "🟢 12% cheaper" / "🔴 8% dearer" / "⚪ pending" — tracker unit rate vs Flexible. */
-function vsFlexLabel(tracker: number | undefined, flex: number | null): string {
+/** "24.1p vs 27.5p  🟢 12% cheaper" — tracker unit rate vs Flexible, rates + %. */
+function priceCompareLine(tracker: number | undefined, flex: number | null): string {
   if (tracker == null) return `${NEUTRAL} pending`
-  if (flex == null || flex <= 0) return `${NEUTRAL} n/a`
+  const trackerStr = `${tracker.toFixed(1)}p`
+  if (flex == null || flex <= 0) return `${trackerStr} (Flex n/a)`
   const pct = ((flex - tracker) / flex) * 100
-  return pct >= 0 ? `${GREEN} ${pct.toFixed(0)}% cheaper` : `${RED} ${Math.abs(pct).toFixed(0)}% dearer`
+  const dot = pct >= 0 ? GREEN : RED
+  const verb = pct >= 0 ? 'cheaper' : 'dearer'
+  return `${trackerStr} vs ${flex.toFixed(1)}p  ${dot} ${Math.abs(pct).toFixed(0)}% ${verb}`
 }
 
 /** "🟢 +£2.67" (saved) / "🔴 −£1.20" (cost more). */
@@ -153,7 +156,7 @@ async function buildDigest(env: Env): Promise<string> {
   // --- Today/tomorrow unit price vs Flexible (no consumption needed) ---
   const priceLines: string[] = []
   // --- Rolling savings, combined across fuels ---
-  const totals = { d7: 0, d30: 0, d90: 0, d180: 0, d365: 0 }
+  const totals = { latest: 0, d7: 0, d30: 0, d90: 0, d180: 0, d365: 0 }
   let lastUsageDate = ''
 
   for (const fuel of fuels) {
@@ -169,8 +172,8 @@ async function buildDigest(env: Env): Promise<string> {
     const flx = directDebitOnly(flxRaw)
     priceLines.push(
       `${FUEL_EMOJI[fuel]} <b>${FUEL_NAME[fuel]}</b>`,
-      `    Today:    ${vsFlexLabel(trk.get(today), rateOn(flx, today))}`,
-      `    Tomorrow: ${vsFlexLabel(trk.get(tomorrow), rateOn(flx, tomorrow))}`,
+      `    Today:    ${priceCompareLine(trk.get(today), rateOn(flx, today))}`,
+      `    Tomorrow: ${priceCompareLine(trk.get(tomorrow), rateOn(flx, tomorrow))}`,
     )
 
     // Savings over the last 90 days, sliced into 7/30/90.
@@ -181,6 +184,7 @@ async function buildDigest(env: Env): Promise<string> {
 
     const r = await computeFuel(fuel, region, since, today, windows, merged)
     if (r.days.length === 0) continue
+    totals.latest += r.days[r.days.length - 1].saved
     totals.d7 += savedSince(r.days, addDays(today, -6))
     totals.d30 += savedSince(r.days, addDays(today, -29))
     totals.d90 += savedSince(r.days, addDays(today, -89))
@@ -199,6 +203,7 @@ async function buildDigest(env: Env): Promise<string> {
     ...priceLines,
     ``,
     `<b>💰 Tracker savings vs Flexible</b>`,
+    ...(lastUsageDate ? [savingLine(`Latest day (${shortDay(lastUsageDate)})`, totals.latest)] : []),
     savingLine('Last 7 days', totals.d7),
     savingLine('Last 30 days', totals.d30),
     savingLine('Last 90 days', totals.d90),
