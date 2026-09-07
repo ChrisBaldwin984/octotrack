@@ -1,0 +1,17 @@
+name = "octotrack-digest"
+main = "worker.ts"
+compatibility_date = "2026-06-01"
+account_id = "e4493db7a78477ea72c9b6932e7a3b4d"
+
+# Cloudflare cron is UTC-only. We fire at both 06:00 and 07:00 UTC and the
+# worker only actually sends when London local time is 07:00 — so it stays
+# 7am UK year-round across BST/GMT.
+[triggers]
+crons = ["0 6 * * *", "0 7 * * *"]
+
+# Non-secret config. Secrets (set via `wrangler secret put`):
+#   OCTOPUS_API_KEY, OCTOPUS_ACCOUNT, TELEGRAM_BOT_TOKEN, TRIGGER_KEY
+[vars]
+TELEGRAM_CHAT_ID = "1466588177"
+GAS_UNITS = "m3"      # 'm3' for SMETS2 smart meters, 'kwh' for SMETS1
+CALORIFIC = "39.5"    # calorific value from your gas bill
