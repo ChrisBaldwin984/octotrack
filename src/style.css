@@ -93,6 +93,16 @@ main {
   display: inline-flex;
   align-items: baseline;
 }
+/* The mark sits left of the wordmark. align-self keeps it centred while the
+   container stays baseline-aligned, so "octo/track" and the blinking tick
+   still sit on their shared baseline. */
+.logo .mark {
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  align-self: center;
+  flex: none;
+}
 .logo span {
   color: var(--elec);
 }

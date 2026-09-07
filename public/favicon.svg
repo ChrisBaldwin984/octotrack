@@ -1,4 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0a0f1e"/>
-  <path d="M18.5 4 8 18h6l-2.5 10L23 13h-6l1.5-9z" fill="#c8f04b"/>
+  <!-- Solid lime block with the bolt and the tracking line knocked out. The
+       holes are a real mask, not navy paint, so the mark also works on white
+       and can be inverted by flipping the rect fill. -->
+  <mask id="k">
+    <rect width="32" height="32" rx="5" fill="#fff"/>
+    <path d="M18.5 4 8 14.5h6l-2.5 7.5L23 10.75h-6l1.5-6.75z" fill="#000"/>
+    <polyline points="6.5,27 12,24.5 18,26 25.5,21.5" fill="none"
+              stroke="#000" stroke-width="2.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="25.5" cy="21.5" r="2.4" fill="#000"/>
+  </mask>
+  <rect width="32" height="32" rx="5" fill="#c8f04b" mask="url(#k)"/>
 </svg>
